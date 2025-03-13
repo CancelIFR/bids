@@ -79,6 +79,18 @@ def process_page_text(page_text: str, page_num: int) -> List[List[str]]:
     rls_pattern = re.compile(r'RLS\s+(\d{4})/(\d{4})\s+(\d+\.\d+)\s+\d+\.\d+\s+\d+\.\d+\s+(\d+\.\d+)(?:\s+(.+))?')
     layover_pattern = re.compile(r'([A-Z]{3})\s+(.*?)(?:\s+\d+)?\s+(\d+\.\d+)(?:\s+(.+))?')
     
+    # First pass: Find the aircraft type for this page
+    page_aircraft_type = None
+    for line in lines:
+        aircraft_match = aircraft_pattern.match(line)
+        if aircraft_match:
+            page_aircraft_type = aircraft_match.group(1)
+            break
+    
+    # Debug output
+    if page_aircraft_type:
+        print(f"Page {page_num}: Found aircraft type {page_aircraft_type}")
+    
     # Process each line
     for line in lines:
         # Skip header and separator lines
@@ -214,6 +226,10 @@ def process_page_text(page_text: str, page_num: int) -> List[List[str]]:
                 # Get the start date (first date in the list, or empty string if none)
                 start_date = start_dates[0] if start_dates else ""
                 
+                # Use the page aircraft type if the individual aircraft type is not set
+                if not aircraft_type and page_aircraft_type:
+                    aircraft_type = page_aircraft_type
+                
                 # Add the pairing to our list
                 pairing = [
                     current_seq, current_days, duty_periods, current_position, 
@@ -276,14 +292,26 @@ def process_page_batch(pdf_path: str, page_nums: List[int], aircraft_type: Optio
             # Extract text from the page
             page_text = extract_page_text(pdf_path, page_num)
             
-            # Process the page text
-            page_pairings = process_page_text(page_text, page_num)
-            
-            # Filter by aircraft type if specified
-            if aircraft_type:
-                page_pairings = [p for p in page_pairings if p[-1] == aircraft_type]
+            # Check if this page contains the specified aircraft type
+            if aircraft_type and aircraft_type in page_text:
+                print(f"Page {page_num}: Contains aircraft type {aircraft_type}")
                 
-            batch_pairings.extend(page_pairings)
+                # Process the page text
+                page_pairings = process_page_text(page_text, page_num)
+                
+                # Set the aircraft type for all pairings on this page
+                for pairing in page_pairings:
+                    pairing[-1] = aircraft_type
+                
+                batch_pairings.extend(page_pairings)
+            elif not aircraft_type:
+                # No aircraft type filter, process normally
+                page_pairings = process_page_text(page_text, page_num)
+                batch_pairings.extend(page_pairings)
+            else:
+                # Skip pages that don't contain the specified aircraft type
+                pass
+                
         except Exception as e:
             print(f"Error processing page {page_num}: {e}")
     
