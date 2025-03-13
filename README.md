@@ -4,7 +4,8 @@ This script extracts pilot pairings from a PBS (Preferential Bidding System) PDF
 
 ## Features
 
-- Multithreaded processing for faster extraction
+- High-performance multiprocessing for parallel extraction
+- Batch processing for optimal resource utilization
 - Filter by aircraft type/bid status (737, 777, 787, 320)
 - Specify page ranges for extraction
 - Extract sequence start dates
@@ -37,7 +38,7 @@ python extract_pairings.py PBS_DFW_April_2025_20250307152846.pdf
 By default, the script:
 - Starts extraction from page 7
 - Processes all pages in the PDF
-- Uses 4 worker threads for parallel processing
+- Uses 4 worker processes for parallel processing
 - Outputs to a file named `pairings.csv` in the current directory
 
 ### Command-line Options
@@ -46,7 +47,7 @@ By default, the script:
 - `--start-page` or `-p`: Specify a different starting page (1-indexed)
 - `--end-page` or `-e`: Specify the last page to process (1-indexed, inclusive)
 - `--aircraft` or `-a`: Filter by aircraft type/bid status (737, 777, 787, 320)
-- `--threads` or `-t`: Number of worker threads to use for parallel processing (default: 4)
+- `--threads` or `-t`: Number of worker processes to use for parallel processing (default: 4)
 
 ### Examples
 
@@ -55,18 +56,26 @@ Extract all 777 pairings:
 python extract_pairings.py PBS_DFW_April_2025_20250307152846.pdf --aircraft 777
 ```
 
-Extract 737 pairings from pages 10-50 with 8 threads:
+Extract 737 pairings from pages 10-50 with 8 processes:
 ```bash
 python extract_pairings.py PBS_DFW_April_2025_20250307152846.pdf --aircraft 737 --start-page 10 --end-page 50 --threads 8 --output 737_pairings.csv
 ```
 
 ## Performance
 
-The script uses multithreading to process multiple pages in parallel, which significantly improves performance. You can adjust the number of worker threads with the `--threads` option to match your system's capabilities.
+The script uses multiprocessing to process multiple pages in parallel, which significantly improves performance compared to traditional threading. This approach bypasses Python's Global Interpreter Lock (GIL) and allows true parallel execution across multiple CPU cores.
+
+Key performance features:
+- **Multiprocessing**: Uses separate processes instead of threads for true parallelism
+- **Batch Processing**: Groups pages into batches for more efficient processing
+- **Pre-compiled Regex**: Optimizes pattern matching for faster text processing
+- **Optimized PDF Handling**: Reduces overhead of PDF operations
+
+You can adjust the number of worker processes with the `--threads` option to match your system's capabilities. The script automatically limits the number of processes to your CPU core count for optimal performance.
 
 ## Customization
 
-The script uses regular expression patterns to extract pairing data. If the extraction doesn't work correctly, you may need to adjust the patterns in the `process_page` function to match the format of your PDF.
+The script uses regular expression patterns to extract pairing data. If the extraction doesn't work correctly, you may need to adjust the patterns in the `process_page_text` function to match the format of your PDF.
 
 ## Output
 
@@ -103,4 +112,14 @@ Once you have the CSV file, you can use tools like Excel, Google Sheets, or Pyth
 - Finding pairings that fit specific schedule preferences
 - Filtering pairings by start date to match your availability
 - Comparing local vs. base times for better schedule planning
-- Analyzing pairings by number of duty periods 
+- Analyzing pairings by number of duty periods
+
+## Understanding Multiple Entries per Sequence
+
+The script extracts each flight leg as a separate row in the CSV file. This is why you may see multiple entries with the same sequence number. Each entry represents a different leg of the same pairing.
+
+For example, sequence 182 might have two flight legs:
+1. DFW to ICN (flight 281)
+2. ICN to DFW (flight 280)
+
+This detailed breakdown allows for more granular analysis of individual flight legs within a pairing. 
